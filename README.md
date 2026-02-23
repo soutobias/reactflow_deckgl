@@ -192,3 +192,4 @@ For the intersection workflow, you can use any two GeoJSON files with overlappin
 - Large datasets may cause performance issues without additional optimizations (e.g. tiling, clustering).
 - No implementation of unit and e2e tests. For that, I would recommend using Jest for unit testing the `deriveLayers()` function, React Testing Library for component testing, and Cypress for end-to-end testing of the workflow and render consistency.
 - SEO and server-side rendering are not considered in this implementation, as the focus is on a client-side interactive application.
+- Data caching is implemented in a simple way using a Map to store fetched GeoJSON data.
