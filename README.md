@@ -90,7 +90,7 @@ Click the "Clear" button in the bottom-left corner to remove all nodes and edges
 
 ## System is divided into three independent layers:
 
-### Diagram Layer (React Flow)
+### 1. Diagram Layer (React Flow)
 
 Responsible only for:
 
@@ -100,7 +100,7 @@ Responsible only for:
 
 The diagram state (nodes + edges) is the "single source of truth" for the workflow.
 
-### Derivation Layer
+### 2. Derivation Layer
 
 The `deriveLayers()` function transforms the diagram into a normalized render model:
 
@@ -122,7 +122,7 @@ Steps performed:
 - Sort layers by `position.y`
 - Assign explicit render order
 
-### Rendering Layer (Deck.gl + MapLibre)
+### 3. Rendering Layer (Deck.gl + MapLibre)
 
 The Map view:
 
