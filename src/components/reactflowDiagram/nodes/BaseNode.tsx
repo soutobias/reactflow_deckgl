@@ -1,7 +1,7 @@
 'use client';
 
+import { Box, type SxProps, type Theme,Typography } from '@mui/material';
 import React from 'react';
-import { Box, Typography, type SxProps, type Theme } from '@mui/material';
 
 type BaseNodeProps = {
   title: string;

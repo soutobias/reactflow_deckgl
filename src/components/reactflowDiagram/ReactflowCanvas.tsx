@@ -1,33 +1,35 @@
 'use client';
 
-import React, { useCallback, useEffect } from 'react';
-import {
-  addEdge,
-  ReactFlowProvider,
-  useEdgesState,
-  useNodesState,
-  type Edge,
-  type Node
-} from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 import { Box } from '@mui/material';
+import {
+  type Edge,
+  type Node,
+  ReactFlowProvider,
+  useEdgesState,
+  useNodesState
+} from '@xyflow/react';
+import React, { useCallback, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
+
 import type { AppDispatch } from '@/store';
 import { clearLayers, setLayers } from '@/store/layersSlice';
 
+import { deriveLayers } from './_actions/deriveLayers';
 import {
   clearReactflowDiagram,
   loadReactflowDiagram,
   saveReactflowDiagram
 } from './_actions/persistence';
-import { deriveLayers } from './_actions/deriveLayers';
-import { SourceNodeData } from './nodes/SourceNode';
-import { LayerNodeData } from './nodes/LayerNode';
-import ReactflowSidebar from './ReactflowSidebar';
 import Canvas from './Canvas';
+import { NodeType } from './DraggableItem';
+import { IntersectionNodeData } from './nodes/IntersectionNode';
+import { LayerNodeData } from './nodes/LayerNode';
+import { SourceNodeData } from './nodes/SourceNode';
+import ReactflowSidebar from './ReactflowSidebar';
 
-export type AppNode = Node<SourceNodeData | LayerNodeData>;
+export type AppNode = Node<SourceNodeData | LayerNodeData | IntersectionNodeData>;
 
 export default function ReactflowCanvas() {
   const dispatch = useDispatch<AppDispatch>();
@@ -49,13 +51,19 @@ export default function ReactflowCanvas() {
   );
 
   const getNewNode = useCallback(
-    (type: string, id: string, position: { x: number; y: number }) => {
-      return {
-        id,
-        type,
-        position,
-        data: type === 'source' ? { url: '', onChange: handleSourceUrlChange } : {}
-      } as AppNode;
+    (type: NodeType, id: string, position: { x: number; y: number }) => {
+      if (type === 'source') {
+        return {
+          id,
+          type,
+          position,
+          data: { url: '', onChange: handleSourceUrlChange }
+        } as AppNode;
+      }
+      if (type === 'intersection') {
+        return { id, type, position, data: {} };
+      }
+      return { id, type, position, data: {} };
     },
     [handleSourceUrlChange]
   );
@@ -64,7 +72,7 @@ export default function ReactflowCanvas() {
     const saved = loadReactflowDiagram();
 
     if (saved) {
-      const hydrated = saved.nodes.map(node => {
+      const hydrated: AppNode[] = saved.nodes.map(node => {
         if (node.type === 'source') {
           return {
             ...node,
@@ -72,9 +80,9 @@ export default function ReactflowCanvas() {
               url: (node.data as SourceNodeData)?.url ?? '',
               onChange: handleSourceUrlChange
             }
-          };
+          } as AppNode;
         }
-        return node;
+        return node as AppNode;
       });
 
       setNodes(hydrated);

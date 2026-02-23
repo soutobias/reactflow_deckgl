@@ -1,6 +1,7 @@
 'use client';
 
 import { Box } from '@mui/material';
+
 import ReactflowCanvas from '@/components/reactflowDiagram/ReactflowCanvas';
 import Button from '@/components/ui/button';
 

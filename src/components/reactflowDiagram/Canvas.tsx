@@ -1,23 +1,27 @@
 'use client';
 
-import React, { useCallback } from 'react';
 import {
-  ReactFlow,
-  useReactFlow,
   addEdge,
-  type Node,
-  type Edge,
   type Connection,
+  type Edge,
+  type OnEdgesChange,
   type OnNodesChange,
-  type OnEdgesChange
+  ReactFlow,
+  useReactFlow
 } from '@xyflow/react';
-import SourceNode, { SourceNodeData } from './nodes/SourceNode';
-import LayerNode, { LayerNodeData } from './nodes/LayerNode';
+import React, { useCallback } from 'react';
+
+import { NodeType } from './DraggableItem';
+import IntersectionNode from './nodes/IntersectionNode';
+import LayerNode from './nodes/LayerNode';
+import SourceNode from './nodes/SourceNode';
 import { AppNode } from './ReactflowCanvas';
+import { CanvaContainer } from './styles';
 
 const nodeTypes = {
   source: SourceNode,
-  layer: LayerNode
+  layer: LayerNode,
+  intersection: IntersectionNode
 };
 
 export default function Canvas({
@@ -31,11 +35,11 @@ export default function Canvas({
 }: {
   nodes: AppNode[];
   edges: Edge[];
-  onNodesChange: OnNodesChange;
+  onNodesChange: OnNodesChange<AppNode>;
   onEdgesChange: OnEdgesChange;
   setNodes: React.Dispatch<React.SetStateAction<AppNode[]>>;
   setEdges: React.Dispatch<React.SetStateAction<Edge[]>>;
-  getNewNode: (type: string, id: string, position: { x: number; y: number }) => AppNode;
+  getNewNode: (type: NodeType, id: string, position: { x: number; y: number }) => AppNode;
 }) {
   const { screenToFlowPosition } = useReactFlow();
 
@@ -54,7 +58,7 @@ export default function Canvas({
   const onDrop = useCallback(
     (evt: React.DragEvent) => {
       evt.preventDefault();
-      const type = evt.dataTransfer.getData('application/reactflow');
+      const type = evt.dataTransfer.getData('application/reactflow') as NodeType;
       if (!type) return;
 
       const position = screenToFlowPosition({ x: evt.clientX, y: evt.clientY });
@@ -66,7 +70,7 @@ export default function Canvas({
   );
 
   return (
-    <div style={{ height: '100%', minWidth: 0 }} onDrop={onDrop} onDragOver={onDragOver}>
+    <CanvaContainer onDrop={onDrop} onDragOver={onDragOver}>
       <ReactFlow
         nodeTypes={nodeTypes}
         nodes={nodes}
@@ -78,6 +82,6 @@ export default function Canvas({
         deleteKeyCode={['Backspace', 'Delete']}
         proOptions={{ hideAttribution: true }}
       />
-    </div>
+    </CanvaContainer>
   );
 }

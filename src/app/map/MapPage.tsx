@@ -1,6 +1,7 @@
 'use client';
 
 import { Box } from '@mui/material';
+
 import DeckMap from '@/components/map/DeckMap';
 import Button from '@/components/ui/button';
 export default function MapPage() {

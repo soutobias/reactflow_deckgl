@@ -1,4 +1,4 @@
-import type { Node, Edge } from '@xyflow/react';
+import type { Edge,Node } from '@xyflow/react';
 
 const KEY = 'reactflow-deckgl-v1';
 

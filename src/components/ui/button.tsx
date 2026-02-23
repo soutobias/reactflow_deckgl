@@ -1,9 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import { Button as MuiButton } from '@mui/material';
 import { type SxProps, type Theme } from '@mui/material';
-import { color } from '@deck.gl/core';
+import Link from 'next/link';
 
 interface ButtonProps {
   label: string;

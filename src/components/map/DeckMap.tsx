@@ -1,27 +1,30 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
+import type { PickingInfo } from '@deck.gl/core';
 import { GeoJsonLayer } from '@deck.gl/layers';
 import { MapboxOverlay } from '@deck.gl/mapbox';
-import type { PickingInfo } from '@deck.gl/core';
-
+import { Backdrop, Box, CircularProgress, Typography } from '@mui/material';
+import bbox from '@turf/bbox';
+import { featureCollection } from '@turf/helpers';
+import intersect from '@turf/intersect';
+import type { Feature, FeatureCollection, GeoJsonProperties, MultiPolygon, Polygon } from 'geojson';
+import type { BBox } from 'geojson';
+import maplibregl from 'maplibre-gl';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import type { RootState, AppDispatch } from '@/store';
+
+import { deriveLayers } from '@/components/reactflowDiagram/_actions/deriveLayers';
+import { loadReactflowDiagram } from '@/components/reactflowDiagram/_actions/persistence';
+import type { AppDispatch, RootState } from '@/store';
 import { setLayers } from '@/store/layersSlice';
 
-import { Backdrop, Box, CircularProgress, Typography } from '@mui/material';
-
-import { loadReactflowDiagram } from '@/components/reactflowDiagram/_actions/persistence';
-import { deriveLayers } from '@/components/reactflowDiagram/_actions/deriveLayers';
-
-import { EMPTY_FC, FeatureCollection, validateGeoJson } from './_actions/validateGeoJson';
-
-import ErrorDialog from './ErrorDialog';
-import { renderTooltipContent } from './_actions/renderTooltip';
 import { isValidUrl } from '../reactflowDiagram/nodes/SourceNode';
+import { bboxesOverlap, EMPTY_FC, polygonFeatures } from './_actions/helpers';
+import { renderTooltipContent } from './_actions/renderTooltip';
+import ErrorDialog from './ErrorDialog';
+import { MapContainer, MapWrapper, Tooltip } from './styles';
 
 export default function DeckMap() {
   const dispatch = useDispatch<AppDispatch>();
@@ -41,7 +44,7 @@ export default function DeckMap() {
 
   const dataPromiseCacheRef = useRef<Map<string, Promise<FeatureCollection>>>(new Map());
   const lastUrlRef = useRef<Map<string, string>>(new Map());
-
+  const intersectionPromiseCacheRef = useRef<Map<string, Promise<FeatureCollection>>>(new Map());
   useEffect(() => {
     if (renderLayers.length > 0) return;
     const saved = loadReactflowDiagram();
@@ -69,7 +72,7 @@ export default function DeckMap() {
         if (!el) return;
 
         if (info.object && typeof info.x === 'number' && typeof info.y === 'number') {
-          const props = (info.object as any)?.properties ?? {};
+          const props = info.object?.properties ?? {};
 
           el.style.display = 'block';
           el.style.left = `${info.x + 10}px`;
@@ -102,6 +105,10 @@ export default function DeckMap() {
     for (const key of dataPromiseCacheRef.current.keys()) {
       const id = key.split('::')[0];
       if (!ids.has(id)) dataPromiseCacheRef.current.delete(key);
+    }
+    for (const key of intersectionPromiseCacheRef.current.keys()) {
+      const id = key.split('::')[0];
+      if (!ids.has(id)) intersectionPromiseCacheRef.current.delete(key);
     }
   }, [renderLayers]);
 
@@ -164,12 +171,6 @@ export default function DeckMap() {
             return EMPTY_FC;
           }
 
-          const validity = validateGeoJson(json);
-          if (!validity.ok) {
-            addBadUrl(url);
-            return EMPTY_FC;
-          }
-
           removeBadUrl(url);
           return json as FeatureCollection;
         } catch {
@@ -186,13 +187,73 @@ export default function DeckMap() {
     [addBadUrl, removeBadUrl]
   );
 
+  const getIntersectionDataPromise = useCallback(
+    (layerId: string, aUrl: string, bUrl: string): Promise<FeatureCollection> => {
+      const a = (aUrl ?? '').trim();
+      const b = (bUrl ?? '').trim();
+
+      const key = `${layerId}::${a}||${b}`;
+      const cached = intersectionPromiseCacheRef.current.get(key);
+      if (cached) return cached;
+
+      const promise = (async () => {
+        const [aData, bData] = await Promise.all([
+          getLayerDataPromise(`${layerId}-a`, a),
+          getLayerDataPromise(`${layerId}-b`, b)
+        ]);
+
+        const aPolys = polygonFeatures(aData);
+        const bPolys = polygonFeatures(bData);
+
+        if (aPolys.length === 0 || bPolys.length === 0) return EMPTY_FC;
+
+        const aItems = aPolys.map(feature => ({ feature, bb: bbox(feature) as BBox }));
+        const bItems = bPolys.map(feature => ({ feature, bb: bbox(feature) as BBox }));
+
+        const outFeatures: Feature[] = [];
+
+        for (const aItem of aItems) {
+          for (const bItem of bItems) {
+            if (!bboxesOverlap(aItem.bb, bItem.bb)) continue;
+
+            try {
+              const out = intersect(
+                featureCollection([
+                  aItem.feature as Feature<Polygon | MultiPolygon, GeoJsonProperties>,
+                  bItem.feature as Feature<Polygon | MultiPolygon, GeoJsonProperties>
+                ])
+              ) as Feature | null;
+
+              if (out) outFeatures.push(out);
+            } catch (err) {
+              console.warn('[intersection] turf intersect failed', { layerId, err });
+            }
+          }
+        }
+
+        return outFeatures.length
+          ? ({ type: 'FeatureCollection', features: outFeatures } as FeatureCollection)
+          : EMPTY_FC;
+      })();
+
+      intersectionPromiseCacheRef.current.set(key, promise);
+      return promise;
+    },
+    [getLayerDataPromise]
+  );
+
   const deckLayers = useMemo(() => {
     const sorted = [...renderLayers].sort((a, b) => a.order - b.order);
 
     return sorted.map(layer => {
+      const data =
+        layer.kind === 'source'
+          ? getLayerDataPromise(layer.id, layer.url)
+          : getIntersectionDataPromise(layer.id, layer.a.url, layer.b.url);
+
       return new GeoJsonLayer({
         id: `geojson-${layer.id}`,
-        data: getLayerDataPromise(layer.id, layer.url),
+        data,
         pickable: true,
         filled: true,
         stroked: true,
@@ -201,7 +262,7 @@ export default function DeckMap() {
         lineWidthMinPixels: 1
       });
     });
-  }, [renderLayers, getLayerDataPromise]);
+  }, [renderLayers, getLayerDataPromise, getIntersectionDataPromise]);
 
   useEffect(() => {
     const overlay = overlayRef.current;
@@ -209,28 +270,16 @@ export default function DeckMap() {
     overlay.setProps({ layers: deckLayers });
   }, [deckLayers]);
 
-  const loadingOpen =
-    !mapReady || (pendingLoads > 0 && renderLayers.some(layer => layer.url?.trim()));
+  const anyHasData = renderLayers.some(layer =>
+    layer.kind === 'source' ? layer.url.trim() : layer.a.url.trim() || layer.b.url.trim()
+  );
+
+  const loadingOpen = !mapReady || (pendingLoads > 0 && anyHasData);
 
   return (
-    <div style={{ position: 'relative', height: '100%' }}>
-      <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
-
-      <div
-        ref={tooltipRef}
-        style={{
-          position: 'absolute',
-          display: 'none',
-          pointerEvents: 'none',
-          background: 'white',
-          border: '1px solid #ddd',
-          borderRadius: '12px',
-          padding: '10px',
-          maxWidth: '360px',
-          fontSize: '12px',
-          whiteSpace: 'pre-wrap'
-        }}
-      />
+    <MapWrapper>
+      <MapContainer ref={containerRef} />
+      <Tooltip ref={tooltipRef} />
 
       <Backdrop open={loadingOpen} sx={{ zIndex: theme => theme.zIndex.modal + 1 }}>
         <Box display="flex" alignItems="center" gap={2}>
@@ -242,6 +291,6 @@ export default function DeckMap() {
       </Backdrop>
 
       <ErrorDialog open={errorOpen} urls={badUrls} onClose={() => setErrorOpen(false)} />
-    </div>
+    </MapWrapper>
   );
 }

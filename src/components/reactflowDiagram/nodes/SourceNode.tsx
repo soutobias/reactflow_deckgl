@@ -1,9 +1,10 @@
 'use client';
 
-import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { TextField } from '@mui/material';
-import BaseNode from './BaseNode';
+import { Handle, type NodeProps, Position } from '@xyflow/react';
 import { useMemo } from 'react';
+
+import BaseNode from './BaseNode';
 
 export type SourceNodeData = {
   url: string;
@@ -21,7 +22,7 @@ type SourceNodeViewProps = {
 export function isValidUrl(value: string) {
   if (!value) return false;
   try {
-    new URL(value, typeof window !== 'undefined' ? window.location.href : 'http://localhost');
+    new URL(value);
     return true;
   } catch {
     return false;
@@ -39,7 +40,7 @@ function SourceNodeView({ id, url, onChange, selected, preview = false }: Source
         fullWidth
         disabled={preview}
         value={url}
-        helperText={!isValid ? 'Enter a valid URL (https://...)' : ' '}
+        helperText={!isValid && !preview ? 'Enter a valid URL (https://...)' : ' '}
         onChange={e => onChange?.(id, e.target.value)}
         placeholder="https://..."
       />

@@ -1,8 +1,9 @@
 "use client";
 
+import { createTheme,CssBaseline, ThemeProvider } from "@mui/material";
 import { Provider } from "react-redux";
+
 import { store } from "@/store";
-import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 
 const theme = createTheme({ shape: { borderRadius: 12 } });
 

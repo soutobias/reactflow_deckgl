@@ -1,12 +1,23 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-export type RenderLayer = {
-  id: string;
-  sourceNodeId: string;
-  url: string;
-  order: number;
-  y: number;
-};
+export type RenderLayer =
+  | {
+      id: string;
+      order: number;
+      y: number;
+      kind: 'source';
+      url: string;
+      sourceNodeId: string;
+    }
+  | {
+      id: string;
+      order: number;
+      y: number;
+      kind: 'intersection';
+      intersectionNodeId: string;
+      a: { sourceNodeId: string; url: string };
+      b: { sourceNodeId: string; url: string };
+    };
 
 type LayersState = { layers: RenderLayer[] };
 
