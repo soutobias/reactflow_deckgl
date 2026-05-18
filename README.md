@@ -9,9 +9,7 @@ The application allows users to:
 - Render those layers on a full-screen interactive map
 - Switch between Diagram and Map views
 
-This implementation follows the rendering and architectural requirements described in the **Front-end Engineer assignment**.
-
-- Live demo: [https://soutobias.github.io/reactflow_deckgl/](https://soutobias.github.io/reactflow_deckgl/)
+Live demo: [https://soutobias.github.io/reactflow_deckgl/](https://soutobias.github.io/reactflow_deckgl/)
 
 ---
 
